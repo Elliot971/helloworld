@@ -1,6 +1,6 @@
 #include "minimake.h"
 #include "preprocess.h"
-#include "syntax.h"
+#include "check_syntax.h"
 #include "build.h"
 
 void print_help(const char *prog_name) {
@@ -11,7 +11,7 @@ void print_help(const char *prog_name) {
     printf("  build <target>   Build target\n");
 }
 
-int main(int argc, char ​**argv) {
+int main(int argc, char **argv) {
     if (argc < 2 || strcmp(argv[1], "--help") == 0) {
         print_help(argv[0]);
         return EXIT_SUCCESS;
