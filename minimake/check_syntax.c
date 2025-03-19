@@ -2,7 +2,7 @@
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
-
+#include "rule.h"
 // 全局规则存储
 Rule rules[MAX_RULES];
 int rule_count = 0;
@@ -101,6 +101,17 @@ int check_makefile_syntax(const char* filename) {
 
     fclose(fp);
     return has_error ? EXIT_FAILURE : EXIT_SUCCESS;
+
+    // 新增静态依赖检查
+for (int i=0; i<rule_count; i++) {
+    for (int d=0; d<rules[i].dep_count; d++) {
+        const char* dep = rules[i].dependencies[d];
+        if (!file_exists(dep) && !is_defined_target(dep)) {
+            printf("Line %d: Invalid dependency '%s'\n", rules[i].line_number, dep);
+            has_error = true;
+        }
+    }
+}
 }
 
 bool is_defined_target(const char *name) {
