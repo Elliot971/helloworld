@@ -1,6 +1,6 @@
 #include "build.h"
 #include "check_syntax.h"
-#include "graph.h"
+#include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

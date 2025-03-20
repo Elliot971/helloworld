@@ -24,5 +24,7 @@ extern int rule_count;
 // 函数声明
 int check_makefile_syntax(const char* filename);
 bool is_defined_target(const char *name);
+void add_dependency(Rule *rule, const char *dep);
+void add_command(Rule *rule, const char *cmd);
 
 #endif

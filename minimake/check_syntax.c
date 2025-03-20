@@ -2,12 +2,12 @@
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
-#include "rule.h"
+
 // 全局规则存储
 Rule rules[MAX_RULES];
 int rule_count = 0;
 
-static void add_dependency(Rule *rule, const char *dep) {
+void add_dependency(Rule *rule, const char *dep) {
     if (rule->dep_count < MAX_DEPS) {
         strncpy(rule->dependencies[rule->dep_count], dep, MAX_TARGET_LEN);
         rule->dependencies[rule->dep_count][MAX_TARGET_LEN-1] = '\0';
@@ -15,7 +15,7 @@ static void add_dependency(Rule *rule, const char *dep) {
     }
 }
 
-static void add_command(Rule *rule, const char *cmd) {
+void add_command(Rule *rule, const char *cmd) {
     if (rule->cmd_count < MAX_CMDS) {
         strncpy(rule->commands[rule->cmd_count], cmd, MAX_LINE_LEN);
         rule->commands[rule->cmd_count][MAX_LINE_LEN-1] = '\0';
@@ -102,12 +102,14 @@ int check_makefile_syntax(const char* filename) {
     fclose(fp);
     return has_error ? EXIT_FAILURE : EXIT_SUCCESS;
 
-    // 新增静态依赖检查
-for (int i=0; i<rule_count; i++) {
-    for (int d=0; d<rules[i].dep_count; d++) {
+ // 新增静态依赖检查
+int i, d;
+for (i=0; i<rule_count; i++) {
+    for (d=0; d<rules[i].dep_count; d++) {
         const char* dep = rules[i].dependencies[d];
         if (!file_exists(dep) && !is_defined_target(dep)) {
-            printf("Line %d: Invalid dependency '%s'\n", rules[i].line_number, dep);
+            printf("Line %d: Invalid dependency '%s'\n", 
+                   rules[i].line_number, dep);
             has_error = true;
         }
     }
