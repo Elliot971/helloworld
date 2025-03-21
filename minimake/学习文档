@@ -1,0 +1,145 @@
+Minimake 项目学习总结
+阶段零：学习了WSL与VScode结合用于开发，在编译出现问题时学会了在终端输入命令，学习了makefile基本语法，复习了好久没用忘得差不多的C语言。
+阶段一：基础框架搭建 (Foundation)
+学习任务与掌握技能
+1.	命令行接口开发
+// main.c 命令分发逻辑
+if (strcmp(subcmd, "preprocess") == 0) {
+    return preprocess_makefile(verbose);
+} else if (...) 
+掌握 getopt 参数解析模式
+实现子命令框架（preprocess/check/build）
+错误处理：参数缺失、无效命令处理
+2.	Makefile 预处理引擎
+// preprocess.c 核心逻辑
+while (fgets(line, sizeof(line), fp)) {
+    trim_trailing_spaces(line);
+    if (!is_blank_line(line)) processed++;
+}
+文件操作：跨平台文件读写（fopen/fclose）
+字符串处理：注释剥离、尾部空格清除
+调试模式实现：生成中间文件 Minimake_cleared.mk
+3.	静态语法检查器
+// check_syntax.c 错误检测
+if (colon == line || *(colon+1) == '\0') {
+    printf("Line %d: Invalid target format\n", line_num);
+}
+语法规则验证：冒号位置、Tab起始命令
+数据结构设计：Rule 结构体存储规则
+错误定位：精确到行号报错
+阶段二：解析器开发 (Parser)
+学习任务与掌握技能
+1.	规则解析系统
+// check_syntax.c 规则存储
+strncpy(current_rule->target, target, MAX_TARGET_LEN);
+add_dependency(current_rule, dep);
+词法分析：目标/依赖/命令的提取
+内存管理：固定大小数组存储规则
+边界处理：MAX_RULES/MAX_DEPS 溢出防护
+2.	依赖验证系统
+// check_syntax.c 依赖检查
+if (!file_exists(dep) && !is_defined_target(dep)) {
+    printf("Line %d: Invalid dependency\n",...);
+}
+文件系统交互：stat 函数检查文件存在性
+目标追溯：跨规则依赖关系验证
+错误恢复：发现错误后继续解析其他规则
+阶段三：构建引擎 (Builder)
+学习任务与掌握技能
+1.	依赖图建模
+c
+// graph.c 图结构
+typedef struct {
+    GraphNode nodes[MAX_NODES];
+    int adj_matrix[MAX_NODES][MAX_NODES];
+} DependencyGraph;
+图论应用：邻接矩阵表示依赖关系
+节点管理：find_or_create_node 动态扩展
+属性记录：is_target/last_modified 状态
+2.	拓扑排序算法
+// graph.c Kahn算法实现
+while (front < rear) {
+    int current = queue[front++];
+    order[sorted_count++] = current;
+    // 更新邻接节点入度
+}
+算法实现：队列维护零入度节点
+循环检测：sorted_count 验证 DAG
+构建顺序生成：order 数组存储拓扑序
+3.	时间戳驱动构建
+// build.c 重建判断逻辑
+if (dep_time > target_time) return true;
+时间管理：stat 获取 st_mtime
+增量构建：仅当依赖比目标新时重建
+文件状态缓存：GraphNode.last_modified
+阶段四：执行引擎 (Executor)
+学习任务与掌握技能
+1.	进程控制核心
+// build.c 改进的 execute_single_command
+pid_t pid = fork();
+if (pid == 0) {
+    execvp("sh", (char*[]){"sh","-c",cmd,NULL});
+    _exit(EXIT_FAILURE); // 必须用 _exit
+}
+进程分叉：fork() 创建子进程
+Shell兼容：通过 /bin/sh 执行命令
+错误隔离：子进程崩溃不影响父进程
+2.	执行监控系统
+// build.c 状态监控
+if (WIFEXITED(status)) {
+    int code = WEXITSTATUS(status);
+    if (code != 0) return -1;
+}
+退出码处理：WEXITSTATUS 解析
+信号处理：WIFSIGNALED 捕获异常终止
+错误传播：逐层返回错误状态
+3.	构建中断机制
+// build_target 错误处理
+if (execute_commands(rule) != 0) {
+    result = EXIT_FAILURE;
+    break; // 关键中断点
+}
+快速失败：首个错误终止构建
+资源释放：free_dependency_graph 避免泄漏
+状态维持：result 变量跟踪全局状态
+疑难重点解析
+1. 时间戳精度问题
+问题现象：快速连续构建时时间戳相同
+解决方案：
+c
+// 改进的 get_file_mtime（纳秒级）
+return st.st_mtime * 1000 + st.st_mtim.tv_nsec / 1000000;
+通过结合秒和纳秒时间，将精度提升到毫秒级
+2. 伪目标处理
+特殊需求：类似 clean 目标不应检查文件
+实现方案：
+c
+// 在解析阶段标记伪目标
+if (strcmp(target, "clean") == 0) {
+    rule->is_phony = true;
+}
+c
+// 构建判断逻辑优化
+if (rule->is_phony) return true; // 总是重建
+3. Shell 特性支持
+挑战：直接使用 execvp 无法解析管道等语法
+创新实现：
+execlp("/bin/sh", "sh", "-c", "gcc *.c | tee build.log", NULL);
+通过 sh -c 执行完整命令行，支持通配符、管道等特性
+4. 僵尸进程防御
+风险点：未正确 wait 导致僵尸进程
+防御代码：
+while (waitpid(pid, &status, 0) == -1) {
+  if (errno != EINTR) break; // 处理信号中断
+}
+循环等待确保回收所有子进程
+能力成长图谱
+1.	系统编程能力
+掌握 Linux 文件系统 API（stat/open 等）
+熟练使用进程控制原语（fork/exec/wait）
+2.	算法设计能力
+实现关键图论算法（拓扑排序）
+设计高效数据结构（邻接矩阵）
+3.	工程实践能力
+多模块协同开发（6个.h 和 5个.c 文件）
+防御式编程（400+行错误处理代码）
